@@ -11,6 +11,12 @@
       ping:
         data: test
 
+    - name: create a folder
+      file:
+        path: hello
+        state: directory
+        mode: '0755'
+
     - fail:
         msg: The system may not be provisioned according to the CMDB pong status.
         # msg: pong

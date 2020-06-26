@@ -17,8 +17,10 @@ DOCUMENTATION = '''
 
 from ansible.plugins.callback import CallbackBase
 from ansible.parsing.yaml.objects import AnsibleUnicode
+from ansible.utils.unsafe_proxy import AnsibleUnsafeText
 from ansible import constants as C
 
+import yaml
 
 class CallbackModule(CallbackBase):
 
@@ -31,7 +33,12 @@ class CallbackModule(CallbackBase):
     CALLBACK_TYPE = 'stdout'
     CALLBACK_NAME = 'minimal_test'
 
-    SENSITIVE_VALUES = ["hello", "pong"]
+    SENSITIVE_VALUES = []
+
+    with open('vars.yml') as f:
+        values = yaml.load(f, Loader=yaml.FullLoader)
+        for v in values:
+            SENSITIVE_VALUES.append(values[v])
 
     def _command_generic_msg(self, host, result, caption):
         ''' output the result of a command run '''
@@ -44,10 +51,12 @@ class CallbackModule(CallbackBase):
         return buf + "\n"
 
     def _hide_sensitive_values(self, result):
-        for key, value in result._result.iteritems():
+        for key in result._result:
             for sensitive_value in CallbackModule.SENSITIVE_VALUES:
-                if isinstance(value, AnsibleUnicode) and sensitive_value in value:
-                        result._result[key] = "********"
+                if isinstance(result._result[key], AnsibleUnicode) \
+                or isinstance(result._result[key], AnsibleUnsafeText) \
+                and sensitive_value in result._result[key]:
+                    result._result[key] = "********"
 
     def v2_runner_on_failed(self, result, ignore_errors=False):
 
