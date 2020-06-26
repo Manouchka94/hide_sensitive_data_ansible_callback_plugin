@@ -1,0 +1,16 @@
+- hosts: localhost
+  gather_facts: no
+
+  tasks:
+
+    - name: debug
+      debug:
+        msg: hello
+
+    - name: ping 
+      ping:
+        data: test
+
+    - fail:
+        msg: The system may not be provisioned according to the CMDB pong status.
+        # msg: pong
