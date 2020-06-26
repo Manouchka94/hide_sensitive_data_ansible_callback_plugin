@@ -1,7 +1,0 @@
----
-
-sensitive_var_1: hello
-sensitive_var_2: pong
-sensitive_var_3: tutu
-
-...

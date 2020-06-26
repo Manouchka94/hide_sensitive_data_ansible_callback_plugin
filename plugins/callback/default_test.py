@@ -31,6 +31,25 @@ DOCUMENTATION = '''
         ini:
           - key: check_mode_markers
             section: defaults
+      encrypted_vars_files_list:
+        name: encrypted_vars_files_list
+        description: List of vars file which contains values to hide
+        type: list
+        default: default_value
+        version_added: 2.9
+        ini:
+            - key: encrypted_vars_files_list
+              section: defaults
+      vault_password_file:
+        name: vault_password_file
+        description: path to a file with ansible vault password
+        type: str
+        default: default_value
+        version_added: 2.9
+        ini:
+            - key: vault_password_file
+              section: defaults
+
 '''
 
 # NOTE: check_mode_markers functionality is also implemented in the following derived plugins:
@@ -44,6 +63,7 @@ from ansible.plugins.callback import CallbackBase
 from ansible.utils.color import colorize, hostcolor
 from ansible.parsing.yaml.objects import AnsibleUnicode
 from ansible.utils.unsafe_proxy import AnsibleUnsafeText
+from ansible import context
 
 import yaml
 import subprocess
@@ -76,12 +96,7 @@ class CallbackModule(CallbackBase):
     CALLBACK_TYPE = 'stdout'
     CALLBACK_NAME = 'default_test'
 
-    SENSITIVE_VALUES = []
-
-    # with open('vars.yml') as f:
-    #     values = yaml.load(f, Loader=yaml.FullLoader)
-    #     for v in values:
-    #         SENSITIVE_VALUES.append(values[v])
+    SENSITIVE_VALUES = set()
 
     def __init__(self):
 
@@ -95,6 +110,8 @@ class CallbackModule(CallbackBase):
 
         super(CallbackModule, self).set_options(task_keys=task_keys, var_options=var_options, direct=direct)
 
+        self.encrypted_vars_files_list = self.get_option('encrypted_vars_files_list')
+
         # for backwards compat with plugins subclassing default, fallback to constants
         for option, constant in COMPAT_OPTIONS:
             try:
@@ -105,16 +122,24 @@ class CallbackModule(CallbackBase):
 
     def _hide_sensitive_values(self, result):
 
-        vars_file_decrypted = subprocess.check_output([ "ansible-vault",
-                                                        "view",
-                                                        "vars_vault.yml",
-                                                        "--vault-password-file",
-                                                        "secret.txt"],
-                                                        universal_newlines=True)
+        # Get vault_password_file from CLI
+        if context.CLIARGS['vault_password_files']:
+          self.vault_password_file = context.CLIARGS['vault_password_files'][0]
+        # Get vault_password_file from ansible.cfg
+        else:
+          self.vault_password_file = self.get_option('vault_password_file')
 
-        sensitive_values_dict = yaml.safe_load(vars_file_decrypted)
-        for v in sensitive_values_dict:
-            CallbackModule.SENSITIVE_VALUES.append(sensitive_values_dict[v])
+        for encrypted_vars_file in self.encrypted_vars_files_list:
+          vars_file_decrypted = subprocess.check_output([ "ansible-vault",
+                                                          "view",
+                                                          encrypted_vars_file,
+                                                          "--vault-password-file",
+                                                          self.vault_password_file],
+                                                          universal_newlines=True)
+
+          sensitive_values_dict = yaml.safe_load(vars_file_decrypted)
+          for v in sensitive_values_dict:
+              CallbackModule.SENSITIVE_VALUES.add(sensitive_values_dict[v])
 
         for key in result._result:
             for sensitive_value in CallbackModule.SENSITIVE_VALUES:
