@@ -17,26 +17,12 @@ DOCUMENTATION = '''
     requirements:
       - set as stdout in configuration
     options:
-      check_mode_markers:
-        name: Show markers when running in check mode
-        description:
-        - "Toggle to control displaying markers when running in check mode. The markers are C(DRY RUN)
-        at the beggining and ending of playbook execution (when calling C(ansible-playbook --check))
-        and C(CHECK MODE) as a suffix at every play and task that is run in check mode."
-        type: bool
-        default: no
-        version_added: 2.9
-        env:
-          - name: ANSIBLE_CHECK_MODE_MARKERS
-        ini:
-          - key: check_mode_markers
-            section: defaults
       encrypted_vars_files_list:
         name: encrypted_vars_files_list
         description: List of vars file which contains values to hide
         type: list
         default: default_value
-        version_added: 2.9
+        version_added: 2.7
         ini:
             - key: encrypted_vars_files_list
               section: defaults
@@ -45,28 +31,25 @@ DOCUMENTATION = '''
         description: path to a file with ansible vault password
         type: str
         default: default_value
-        version_added: 2.9
+        version_added: 2.7
         ini:
             - key: vault_password_file
               section: defaults
-
 '''
 
-# NOTE: check_mode_markers functionality is also implemented in the following derived plugins:
-#       debug.py, yaml.py, dense.py. Maybe their documentation needs updating, too.
-
-
 from ansible import constants as C
-from ansible import context
 from ansible.playbook.task_include import TaskInclude
 from ansible.plugins.callback import CallbackBase
 from ansible.utils.color import colorize, hostcolor
-from ansible.parsing.yaml.objects import AnsibleUnicode
-from ansible.utils.unsafe_proxy import AnsibleUnsafeText
-from ansible import context
+from ansible.module_utils._text import to_text
+from ansible.errors import AnsibleError, AnsibleOptionsError, AnsibleParserError
+from ansible.utils.display import Display
 
 import yaml
 import subprocess
+import os
+import sys
+import traceback
 
 # These values use ansible.constants for historical reasons, mostly to allow
 # unmodified derivative plugins to work. However, newer options added to the
@@ -76,13 +59,10 @@ import subprocess
 
 # these are used to provide backwards compat with old plugins that subclass from default
 # but still don't use the new config system and/or fail to document the options
-# TODO: Change the default of check_mode_markers to True in a future release (2.13)
 COMPAT_OPTIONS = (('display_skipped_hosts', C.DISPLAY_SKIPPED_HOSTS),
                   ('display_ok_hosts', True),
                   ('show_custom_stats', C.SHOW_CUSTOM_STATS),
-                  ('display_failed_stderr', False),
-                  ('check_mode_markers', False),
-                  ('show_per_host_start', False))
+                  ('display_failed_stderr', False),)
 
 
 class CallbackModule(CallbackBase):
@@ -122,28 +102,47 @@ class CallbackModule(CallbackBase):
 
     def _hide_sensitive_values(self, result):
 
+        display = Display()
+
+        me = os.path.basename(sys.argv[0])
+        target = me.split('-')
+        sub = target[1]
+        myclass = "%sCLI" % sub.capitalize()
+        mycli = getattr(__import__("ansible.cli.%s" % sub, fromlist=[myclass]), myclass)
+
+        try:
+            args = [to_text(a, errors='surrogate_or_strict') for a in sys.argv]
+        except UnicodeError:
+            display.error('Command line args are not in utf-8, unable to continue.  Ansible currently only understands utf-8')
+            display.display(u"The full traceback was:\n\n%s" % to_text(traceback.format_exc()))
+            exit_code = 6
+
+        cli = mycli(args)
+        cli.parse()
+
         # Get vault_password_file from CLI
-        if context.CLIARGS['vault_password_files']:
-          self.vault_password_file = context.CLIARGS['vault_password_files'][0]
+        if cli.options.vault_password_files[0]:
+            self.vault_password_file = cli.options.vault_password_files[0]
         # Get vault_password_file from ansible.cfg
         else:
-          self.vault_password_file = self.get_option('vault_password_file')
+            self.vault_password_file = self.get_option('vault_password_file')
 
         for encrypted_vars_file in self.encrypted_vars_files_list:
-          vars_file_decrypted = subprocess.check_output([ "ansible-vault",
-                                                          "view",
-                                                          encrypted_vars_file,
-                                                          "--vault-password-file",
-                                                          self.vault_password_file],
-                                                          universal_newlines=True)
+            vars_file_decrypted = subprocess.check_output([ "ansible-vault",
+                                                            "view",
+                                                            encrypted_vars_file,
+                                                            "--vault-password-file",
+                                                            self.vault_password_file],
+                                                            universal_newlines=True)
 
-          sensitive_values_dict = yaml.safe_load(vars_file_decrypted)
-          for v in sensitive_values_dict:
-              CallbackModule.SENSITIVE_VALUES.add(sensitive_values_dict[v])
+            sensitive_values_dict = yaml.safe_load(vars_file_decrypted)
+
+            for v in sensitive_values_dict:
+                CallbackModule.SENSITIVE_VALUES.add(sensitive_values_dict[v])
 
         for key in result._result:
             for sensitive_value in CallbackModule.SENSITIVE_VALUES:
-                if isinstance(result._result[key], str) and sensitive_value in result._result[key]:
+                if isinstance(result._result[key], unicode) and sensitive_value in result._result[key]:
                     result._result[key] = result._result[key].replace(sensitive_value, "********")
 
     def v2_runner_on_failed(self, result, ignore_errors=False):
@@ -211,7 +210,7 @@ class CallbackModule(CallbackBase):
         else:
             self._clean_results(result._result, result._task.action)
 
-            if self._run_is_verbose(result):
+            if (self._display.verbosity > 0 or '_ansible_verbose_always' in result._result) and '_ansible_verbose_override' not in result._result:
                 msg += " => %s" % (self._dump_results(result._result),)
             self._display.display(msg, color=color)
 
@@ -230,7 +229,7 @@ class CallbackModule(CallbackBase):
                 self._process_items(result)
             else:
                 msg = "skipping: [%s]" % result._host.get_name()
-                if self._run_is_verbose(result):
+                if (self._display.verbosity > 0 or '_ansible_verbose_always' in result._result) and '_ansible_verbose_override' not in result._result:
                     msg += " => %s" % self._dump_results(result._result)
                 self._display.display(msg, color=C.COLOR_SKIP)
 
@@ -243,10 +242,11 @@ class CallbackModule(CallbackBase):
 
         delegated_vars = result._result.get('_ansible_delegated_vars', None)
         if delegated_vars:
-            msg = "fatal: [%s -> %s]: UNREACHABLE! => %s" % (result._host.get_name(), delegated_vars['ansible_host'], self._dump_results(result._result))
+            self._display.display("fatal: [%s -> %s]: UNREACHABLE! => %s" % (result._host.get_name(), delegated_vars['ansible_host'],
+                                                                             self._dump_results(result._result)),
+                                  color=C.COLOR_UNREACHABLE)
         else:
-            msg = "fatal: [%s]: UNREACHABLE! => %s" % (result._host.get_name(), self._dump_results(result._result))
-        self._display.display(msg, color=C.COLOR_UNREACHABLE, stderr=self.display_failed_stderr)
+            self._display.display("fatal: [%s]: UNREACHABLE! => %s" % (result._host.get_name(), self._dump_results(result._result)), color=C.COLOR_UNREACHABLE)
 
     def v2_playbook_on_no_hosts_matched(self):
         self._display.display("skipping: no hosts matched", color=C.COLOR_SKIP)
@@ -298,11 +298,7 @@ class CallbackModule(CallbackBase):
         if task_name is None:
             task_name = task.get_name().strip()
 
-        if task.check_mode and self.check_mode_markers:
-            checkmsg = " [CHECK MODE]"
-        else:
-            checkmsg = ""
-        self._display.banner(u"%s [%s%s]%s" % (prefix, task_name, args, checkmsg))
+        self._display.banner(u"%s [%s%s]" % (prefix, task_name, args))
         if self._display.verbosity >= 2:
             path = task.get_path()
             if path:
@@ -316,20 +312,12 @@ class CallbackModule(CallbackBase):
     def v2_playbook_on_handler_task_start(self, task):
         self._task_start(task, prefix='RUNNING HANDLER')
 
-    def v2_runner_on_start(self, host, task):
-        if self.get_option('show_per_host_start'):
-            self._display.display(" [started %s on %s]" % (task, host), color=C.COLOR_OK)
-
     def v2_playbook_on_play_start(self, play):
         name = play.get_name().strip()
-        if play.check_mode and self.check_mode_markers:
-            checkmsg = " [CHECK MODE]"
-        else:
-            checkmsg = ""
         if not name:
-            msg = u"PLAY%s" % checkmsg
+            msg = u"PLAY"
         else:
-            msg = u"PLAY [%s]%s" % (name, checkmsg)
+            msg = u"PLAY [%s]" % name
 
         self._play = play
 
@@ -339,24 +327,24 @@ class CallbackModule(CallbackBase):
 
         self._hide_sensitive_values(result)
 
+        if self._last_task_banner != result._task._uuid:
+            self._print_task_banner(result._task)
+
         if result._task.loop and 'results' in result._result:
             for res in result._result['results']:
                 if 'diff' in res and res['diff'] and res.get('changed', False):
                     diff = self._get_diff(res['diff'])
                     if diff:
-                        if self._last_task_banner != result._task._uuid:
-                            self._print_task_banner(result._task)
                         self._display.display(diff)
         elif 'diff' in result._result and result._result['diff'] and result._result.get('changed', False):
             diff = self._get_diff(result._result['diff'])
             if diff:
-                if self._last_task_banner != result._task._uuid:
-                    self._print_task_banner(result._task)
                 self._display.display(diff)
 
     def v2_runner_item_on_ok(self, result):
 
         delegated_vars = result._result.get('_ansible_delegated_vars', None)
+        self._clean_results(result._result, result._task.action)
         if isinstance(result._task, TaskInclude):
             return
         elif result._result.get('changed', False):
@@ -382,8 +370,7 @@ class CallbackModule(CallbackBase):
 
         msg += " => (item=%s)" % (self._get_item_label(result._result),)
 
-        self._clean_results(result._result, result._task.action)
-        if self._run_is_verbose(result):
+        if (self._display.verbosity > 0 or '_ansible_verbose_always' in result._result) and '_ansible_verbose_override' not in result._result:
             msg += " => %s" % self._dump_results(result._result)
         self._display.display(msg, color=color)
 
@@ -411,7 +398,7 @@ class CallbackModule(CallbackBase):
 
             self._clean_results(result._result, result._task.action)
             msg = "skipping: [%s] => (item=%s) " % (result._host.get_name(), self._get_item_label(result._result))
-            if self._run_is_verbose(result):
+            if (self._display.verbosity > 0 or '_ansible_verbose_always' in result._result) and '_ansible_verbose_override' not in result._result:
                 msg += " => %s" % self._dump_results(result._result)
             self._display.display(msg, color=C.COLOR_SKIP)
 
@@ -428,31 +415,21 @@ class CallbackModule(CallbackBase):
         for h in hosts:
             t = stats.summarize(h)
 
-            self._display.display(
-                u"%s : %s %s %s %s %s %s %s" % (
-                    hostcolor(h, t),
-                    colorize(u'ok', t['ok'], C.COLOR_OK),
-                    colorize(u'changed', t['changed'], C.COLOR_CHANGED),
-                    colorize(u'unreachable', t['unreachable'], C.COLOR_UNREACHABLE),
-                    colorize(u'failed', t['failures'], C.COLOR_ERROR),
-                    colorize(u'skipped', t['skipped'], C.COLOR_SKIP),
-                    colorize(u'rescued', t['rescued'], C.COLOR_OK),
-                    colorize(u'ignored', t['ignored'], C.COLOR_WARN),
-                ),
+            self._display.display(u"%s : %s %s %s %s" % (
+                hostcolor(h, t),
+                colorize(u'ok', t['ok'], C.COLOR_OK),
+                colorize(u'changed', t['changed'], C.COLOR_CHANGED),
+                colorize(u'unreachable', t['unreachable'], C.COLOR_UNREACHABLE),
+                colorize(u'failed', t['failures'], C.COLOR_ERROR)),
                 screen_only=True
             )
 
-            self._display.display(
-                u"%s : %s %s %s %s %s %s %s" % (
-                    hostcolor(h, t, False),
-                    colorize(u'ok', t['ok'], None),
-                    colorize(u'changed', t['changed'], None),
-                    colorize(u'unreachable', t['unreachable'], None),
-                    colorize(u'failed', t['failures'], None),
-                    colorize(u'skipped', t['skipped'], None),
-                    colorize(u'rescued', t['rescued'], None),
-                    colorize(u'ignored', t['ignored'], None),
-                ),
+            self._display.display(u"%s : %s %s %s %s" % (
+                hostcolor(h, t, False),
+                colorize(u'ok', t['ok'], None),
+                colorize(u'changed', t['changed'], None),
+                colorize(u'unreachable', t['unreachable'], None),
+                colorize(u'failed', t['failures'], None)),
                 log_only=True
             )
 
@@ -474,32 +451,25 @@ class CallbackModule(CallbackBase):
                 self._display.display('\tRUN: %s' % self._dump_results(stats.custom['_run'], indent=1).replace('\n', ''))
             self._display.display("", screen_only=True)
 
-        if context.CLIARGS['check'] and self.check_mode_markers:
-            self._display.banner("DRY RUN")
-
     def v2_playbook_on_start(self, playbook):
         if self._display.verbosity > 1:
             from os.path import basename
             self._display.banner("PLAYBOOK: %s" % basename(playbook._file_name))
 
-        # show CLI arguments
         if self._display.verbosity > 3:
-            if context.CLIARGS.get('args'):
-                self._display.display('Positional arguments: %s' % ' '.join(context.CLIARGS['args']),
-                                      color=C.COLOR_VERBOSE, screen_only=True)
-
-            for argument in (a for a in context.CLIARGS if a != 'args'):
-                val = context.CLIARGS[argument]
-                if val:
-                    self._display.display('%s: %s' % (argument, val), color=C.COLOR_VERBOSE, screen_only=True)
-
-        if context.CLIARGS['check'] and self.check_mode_markers:
-            self._display.banner("DRY RUN")
+            # show CLI options
+            if self._options is not None:
+                for option in dir(self._options):
+                    if option.startswith('_') or option in ['read_file', 'ensure_value', 'read_module']:
+                        continue
+                    val = getattr(self._options, option)
+                    if val and self._display.verbosity > 3:
+                        self._display.display('%s: %s' % (option, val), color=C.COLOR_VERBOSE, screen_only=True)
 
     def v2_runner_retry(self, result):
         task_name = result.task_name or result._task
         msg = "FAILED - RETRYING: %s (%d retries left)." % (task_name, result._result['retries'] - result._result['attempts'])
-        if self._run_is_verbose(result, verbosity=2):
+        if (self._display.verbosity > 2 or '_ansible_verbose_always' in result._result) and '_ansible_verbose_override' not in result._result:
             msg += "Result was: %s" % self._dump_results(result._result)
         self._display.display(msg, color=C.COLOR_DEBUG)
 
