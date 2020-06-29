@@ -48,7 +48,7 @@ callback_plugins   = ./plugins/callback
 
 ## Test
 
-Le but de ce playbook est de masquer les variables suivantes :
+Le but de ce test est de masquer les variables suivantes :
 
 ``` yaml
 sensitive_var_1: hello
