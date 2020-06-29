@@ -2,6 +2,15 @@
 
 Ce plugin permet de masquer des données sensibles (type password) dans la log d'exécution de vos playbooks.
 
+## Matrice de compatibilité
+
+| Ansible version | Python version |
+|-----------------|----------------|
+| 2.6.20          | 2.7.5          |
+| 2.7.18          | 2.7.5          |
+| 2.8.6           | 2.7.5          |
+| 2.9.9           | 3.6.8          |
+
 ## Cas d'usage
 Vous avez chiffré des fichiers de variables via l'outil ansible-vault.
 Vous chargez ces fichiers dans votre playbook et utilisez ces variables dans votre play.
