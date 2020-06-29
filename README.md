@@ -20,6 +20,7 @@ Créer les folders plugins/callback
 mkdir -p plugins/callback
 ```
 
+Télécharger le script de callback
 ``` shell
 wget --directory-prefix ./plugins/callback https://si-devops-gitlab.edf.fr/DVS/callback_plugin_default_hide_sensitive_data/-/raw/master/plugins/callback/default_hide_sensitive_data.py
 ```
