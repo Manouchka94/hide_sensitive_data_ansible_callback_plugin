@@ -13,12 +13,12 @@ Les plugins de callback permettent de contrôler ce qui est affiché dans la log
 
 Pour configurer ce plugin de callback il faut :
 
-#####  Créer les folders plugins/callback
+#### Créer les folders plugins/callback
 ``` shell
 mkdir -p plugins/callback
 ```
 
-##### Éditer le fichier ansible.cfg :
+#### Éditer le fichier ansible.cfg :
 
 Dans la section **[defaults]**
 Renseigner l'entrée **stdout_callback** avec le plugin à utiliser : default_hide_sensitive_data.
