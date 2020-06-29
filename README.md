@@ -10,7 +10,15 @@ Vous chargez ces fichiers dans votre playbook et utilisez ces variables dans vot
 
 ## Configuration
 Les plugins de callback permettent de contrôler ce qui est affiché dans la log d'exécution d'un playbook.
-Pour configurer ce plugin de callback il faut éditer le fichier ansible.cfg.
+
+Pour configurer ce plugin de callback il faut :
+
+Créer les folders : .plugins/callback
+``` shell
+mkdir -p plugins/callback
+```
+
+Éditer le fichier ansible.cfg :
 
 Dans la section **[defaults]**
 Renseigner l'entrée **stdout_callback** avec le plugin à utiliser : default_hide_sensitive_data.
