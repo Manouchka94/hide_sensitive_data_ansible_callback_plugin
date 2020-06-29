@@ -13,9 +13,15 @@ Les plugins de callback permettent de contrôler ce qui est affiché dans la log
 
 Pour configurer ce plugin de callback il faut :
 
-#### Créer les folders plugins/callback
+#### Mise en place du script de callback
+
+Créer les folders plugins/callback
 ``` shell
 mkdir -p plugins/callback
+```
+
+``` shell
+wget --directory-prefix ./plugins/callback https://si-devops-gitlab.edf.fr/DVS/callback_plugin_default_hide_sensitive_data/-/raw/master/plugins/callback/default_hide_sensitive_data.py
 ```
 
 #### Éditer le fichier ansible.cfg :
