@@ -15,14 +15,12 @@ Pour configurer ce plugin de callback il faut :
 
 #### Mise en place du script de callback
 
-Créer les folders plugins/callback
-``` shell
-mkdir -p plugins/callback
-```
 
-Télécharger le script de callback
+Télécharger le script de callback qui correspond à votre version d'Ansible.
+
+Exemple pour la version 2.9
 ``` shell
-wget --directory-prefix ./plugins/callback https://si-devops-gitlab.edf.fr/DVS/callback_plugin_default_hide_sensitive_data/-/raw/master/plugins/callback/default_hide_sensitive_data.py
+wget --directory-prefix ./plugins/callback https://si-devops-gitlab.edf.fr/DVS/callback_plugin_default_hide_sensitive_data/-/raw/master/plugins/callback/2.9/default_hide_sensitive_data.py
 ```
 
 #### Éditer le fichier ansible.cfg :
