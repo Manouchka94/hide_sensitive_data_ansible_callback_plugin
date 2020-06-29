@@ -121,7 +121,7 @@ class CallbackModule(CallbackBase):
         cli.parse()
 
         # Get vault_password_file from CLI
-        if cli.options.vault_password_files[0]:
+        if len(cli.options.vault_password_files) != 0:
             self.vault_password_file = cli.options.vault_password_files[0]
         # Get vault_password_file from ansible.cfg
         else:

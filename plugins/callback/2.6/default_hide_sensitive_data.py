@@ -97,7 +97,7 @@ class CallbackModule(CallbackBase):
         cli.parse()
 
         # Get vault_password_file from CLI
-        if cli.options.vault_password_files[0]:
+        if len(cli.options.vault_password_files) != 0:
             self.vault_password_file = cli.options.vault_password_files[0]
         # Get vault_password_file from ansible.cfg
         else:
@@ -118,7 +118,7 @@ class CallbackModule(CallbackBase):
 
         for key in result._result:
             for sensitive_value in CallbackModule.SENSITIVE_VALUES:
-                if isinstance(result._result[key], str) and sensitive_value in result._result[key]:
+                if isinstance(result._result[key], unicode) and sensitive_value in result._result[key]:
                     result._result[key] = result._result[key].replace(sensitive_value, "********")
 
     def v2_runner_on_failed(self, result, ignore_errors=False):
