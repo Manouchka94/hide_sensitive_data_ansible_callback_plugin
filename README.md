@@ -2,6 +2,7 @@
 
 Ce plugin permet de masquer des données sensibles (type password) dans la log d'exécution de vos playbooks.
 
+
 ## Matrice de compatibilité
 
 | Ansible version | Python version |
@@ -11,19 +12,21 @@ Ce plugin permet de masquer des données sensibles (type password) dans la log d
 | 2.8.6           | 2.7.5          |
 | 2.9.9           | 3.6.8          |
 
+
 ## Cas d'usage
 Vous avez chiffré des fichiers de variables via l'outil ansible-vault.
 Vous chargez ces fichiers dans votre playbook et utilisez ces variables dans votre play.
 
 **Problème : Les valeurs de ces variables s'affichent dans la log d'exécution du playbook.**
 
+
 ## Configuration
 Les plugins de callback permettent de contrôler ce qui est affiché dans la log d'exécution d'un playbook.
 
 Pour configurer ce plugin de callback il faut :
 
-#### Mise en place du script de callback
 
+#### Mettre en place du script de callback
 
 Télécharger le script de callback qui correspond à votre version d'Ansible.
 
@@ -32,14 +35,15 @@ Exemple pour la version 2.9
 wget --directory-prefix ./plugins/callback https://si-devops-gitlab.edf.fr/DVS/callback_plugin_default_hide_sensitive_data/-/raw/master/plugins/callback/2.9/default_hide_sensitive_data.py
 ```
 
-#### Éditer le fichier ansible.cfg :
 
-Dans la section **[defaults]**
+#### Éditer le fichier ansible.cfg
+
+Dans la section **[defaults]** \
 Renseigner l'entrée **stdout_callback** avec le plugin à utiliser : default_hide_sensitive_data.
 
-Renseigner l'entrée **encrypted_vars_files_list** avec la liste des fichiers de variables chiffrées dans les valeurs doivent être masquées dans la log. (séparateur ',').
+Renseigner l'entrée **encrypted_vars_files_list** avec la liste des fichiers de variables chiffrées dont les valeurs doivent être masquées dans la log. (séparateur ',').
 
-Soit on renseigne l'entrée **vault_password_file** avec le path du fichier contenant le mot de passe pour déchiffrer les fichiers de variables.
+Soit on renseigne l'entrée **vault_password_file** avec le path du fichier contenant le mot de passe pour déchiffrer les fichiers de variables. \
 Soit on utilise l'option **--vault-password-file** dans la ligne de commande.
 
 Renseinger l'entrée **callback_plugins** vers le path du folder contenant le plugin de callback.
