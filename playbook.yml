@@ -7,6 +7,9 @@
 
   tasks:
 
+    - name: "shell"
+      shell: "echo {{ sensitive_var_1  }}"
+
     - name: debug msg with only a sensitive var
       debug:
         msg: "{{ sensitive_var_1 }}"

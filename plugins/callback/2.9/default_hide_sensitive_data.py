@@ -138,10 +138,21 @@ class CallbackModule(CallbackBase):
             for v in sensitive_values_dict:
                 CallbackModule.SENSITIVE_VALUES.add(sensitive_values_dict[v])
 
-        for key in result._result:
+        self.update_value(result._result)
+
+    def update_value(self, dict_result):
+        """
+        This function update sensitive values in a nested dict.
+        """
+        for key, value in dict_result.items():
             for sensitive_value in CallbackModule.SENSITIVE_VALUES:
-                if isinstance(result._result[key], str) and sensitive_value in result._result[key]:
-                    result._result[key] = result._result[key].replace(sensitive_value, "********")
+                if isinstance(value, dict):
+                    self.update_value(value)
+                if isinstance(value, str) and sensitive_value in value:
+                    dict_result[key] = value.replace(sensitive_value, "********")
+                if isinstance(value, list) and sensitive_value in value:
+                    for index, element in enumerate(value):
+                        value[index] = element.replace(sensitive_value, "********")
 
     def v2_runner_on_failed(self, result, ignore_errors=False):
 
