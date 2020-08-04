@@ -7,12 +7,19 @@
 
   tasks:
 
-    - name: "shell"
+    - name: "echo one sensitive value"
       shell: "echo {{ sensitive_var_1  }}"
+
+    - name: "echo many sensitive values"
+      shell: "echo {{ sensitive_var_1  }} and {{ sensitive_var_2  }}"
 
     - name: debug msg with only a sensitive var
       debug:
         msg: "{{ sensitive_var_1 }}"
+
+    - name: debug msg with only a sensitive var
+      debug:
+        msg: "{{ sensitive_var_1 }} and {{ sensitive_var_2 }}"
 
     - name: debug msg with text and a sensitive var
       debug:

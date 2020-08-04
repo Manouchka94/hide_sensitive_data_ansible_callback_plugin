@@ -117,6 +117,10 @@ class CallbackModule(CallbackBase):
             setattr(self, option, value)
 
     def _hide_sensitive_values(self, result):
+        """
+        This function creates a list of sensitive values from encrypted var files.
+        And checks if this values are present in the current line to display
+        """
 
         # Get vault_password_file from CLI
         if context.CLIARGS['vault_password_files']:
@@ -138,21 +142,35 @@ class CallbackModule(CallbackBase):
             for v in sensitive_values_dict:
                 CallbackModule.SENSITIVE_VALUES.add(sensitive_values_dict[v])
 
-        self.update_value(result._result)
+        self.check_sensitive_values(result._result)
 
-    def update_value(self, dict_result):
+    def check_sensitive_values(self, dict_result):
         """
         This function update sensitive values in a nested dict.
         """
         for key, value in dict_result.items():
-            for sensitive_value in CallbackModule.SENSITIVE_VALUES:
+
                 if isinstance(value, dict):
-                    self.update_value(value)
-                if isinstance(value, str) and sensitive_value in value:
-                    dict_result[key] = value.replace(sensitive_value, "********")
-                if isinstance(value, list) and sensitive_value in value:
+                    self.check_sensitive_values(value)
+
+                if isinstance(value, str):
+                    value = self.replace_sensitive_value(value)
+                    dict_result[key] = value
+                
+                if isinstance(value, list):
                     for index, element in enumerate(value):
-                        value[index] = element.replace(sensitive_value, "********")
+                        if isinstance(element, str):
+                            element = self.replace_sensitive_value(element) 
+                        value[index] = element
+
+    def replace_sensitive_value(self, current_value):
+        """
+        This function replace all sensitive values in a string
+        """
+        for s in current_value.split():
+            if s in CallbackModule.SENSITIVE_VALUES:
+                current_value = current_value.replace(s, "********")
+        return current_value
 
     def v2_runner_on_failed(self, result, ignore_errors=False):
 
