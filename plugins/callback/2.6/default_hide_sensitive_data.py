@@ -141,9 +141,8 @@ class CallbackModule(CallbackBase):
         """
         This function replace all sensitive values in a string
         """
-        for s in current_value.split():
-            if s in CallbackModule.SENSITIVE_VALUES:
-                current_value = current_value.replace(s, "********")
+        for sensitive_value in CallbackModule.SENSITIVE_VALUES:
+            current_value = current_value.replace(sensitive_value, "********")
         return current_value
 
     def v2_runner_on_failed(self, result, ignore_errors=False):

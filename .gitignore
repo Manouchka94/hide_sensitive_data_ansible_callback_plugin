@@ -1,3 +1,4 @@
 plugins/callback/__pycache__/
 *.pyc
 *.retry
+reports/report.html
