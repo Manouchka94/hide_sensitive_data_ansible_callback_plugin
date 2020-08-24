@@ -4,7 +4,7 @@ This plugin allows you to hide sensitive data (example password) in the executio
 
 <br>
 
-## Matrice de compatibilité
+## Compatibility matrix
 
 | Ansible version | Python version |
 |-----------------|----------------|
@@ -15,45 +15,45 @@ This plugin allows you to hide sensitive data (example password) in the executio
 
 <br>
 
-## Cas d'usage
-Vous avez chiffré des fichiers de variables via l'outil ansible-vault.
-Vous chargez ces fichiers dans votre playbook et utilisez ces variables dans votre play.
+## Use case
+You encrypted variable files using the ansible-vault tool.
+You load these files into your playbook and use these variables in your play.
 
-**Problème : Les valeurs de ces variables s'affichent dans la log d'exécution du playbook.**
+**Issue : Values of these variables are displayed in the playbook runtime log.**
 
 <br>
 
 ## Configuration
-Les plugins de callback permettent de contrôler ce qui est affiché dans la log d'exécution d'un playbook.
+Callback plugins allow you to control what is displayed in the execution log of a playbook.
 
-Pour configurer ce plugin de callback il faut :
+To configure this callback plugin you must:
 
 <br>
 
-### Mettre en place du script de callback
+### Set up the callback script
 
-Télécharger le script de callback qui correspond à votre version d'Ansible.
+Download the callback script that matches your version of Ansible.
 
-Exemple pour la version 2.9
+Example for version 2.9
 ``` shell
-wget --directory-prefix ./plugins/callback https://si-devops-gitlab.edf.fr/DVS/callback_plugin_default_hide_sensitive_data/-/raw/master/plugins/callback/2.9/default_hide_sensitive_data.py
+wget --directory-prefix ./plugins/callback https://<url>/plugins/callback/2.9/default_hide_sensitive_data.py
 ```
 
 <br>
 
-### Configuration dans le fichier ansible.cfg
+### Configuration in the ansible.cfg file
 
-Dans la section **[defaults]** \
+In the section **[defaults]** \
 Renseigner l'entrée **stdout_callback** avec le plugin à utiliser : default_hide_sensitive_data.
 
-Renseigner l'entrée **encrypted_vars_files_list** avec la liste des fichiers de variables chiffrées dont les valeurs doivent être masquées dans la log. (séparateur ',').
+Fill in the entry **encrypted_vars_files_list** with the list of encrypted variable files whose values must be hidden in the log. (separator ',').
 
-Soit on renseigne l'entrée **vault_password_file** avec le path du fichier contenant le mot de passe pour déchiffrer les fichiers de variables. \
-Soit on utilise l'option **--vault-password-file** dans la ligne de commande.
+Or we fill in the entry **vault_password_file** with the path of the file containing the password to decrypt the variable files. \
+Either we use the option **--vault-password-file** in the command line.
 
-Renseinger l'entrée **callback_plugins** vers le path du folder contenant le plugin de callback.
+Fill in the entry **callback_plugins** to the path of the folder containing the callback plugin.
 
-Exemple vault_password_file dans le fichier ansible.cfg :
+Example of ansible.cfg file :
 
 ``` ini
 [defaults]
@@ -65,9 +65,9 @@ callback_plugins = ./plugins/callback
 
 <br>
 
-### Configuration via la command line et ansible.cfg
+### Configuration via the command line and ansible.cfg
 
-Exemple vault_password_file via la ligne de commande :
+Example of ansible.cfg file :
 
 ``` ini
 [defaults]
@@ -85,7 +85,7 @@ ansible-playbook playbook.yml --vault-password-file=.vault_pass.py -vvvv
 
 ## Test
 
-Le but de ce test est de masquer les variables suivantes :
+The purpose of this test is to hide the following variables:
 
 ``` yaml
 sensitive_var_1: hello
@@ -94,7 +94,7 @@ sensitive_var_2: pong
 
 <br>
 
-### Sans le plugin de callback
+### Without the callback plugin
 
 ``` 
 PLAY [localhost] *****************************************************************************************************************************************************************************************************************************
@@ -147,7 +147,7 @@ PLAY RECAP *********************************************************************
 localhost                  : ok=2    changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0
 ``` 
 
-### Avec le plugin de callback
+### With the callback plugin
 
 ``` 
 PLAY [localhost] *****************************************************************************************************************************************************************************************************************************
