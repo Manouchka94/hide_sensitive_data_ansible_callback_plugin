@@ -1,6 +1,6 @@
 # Ansible Callback Plugin default_hide_sensitive_data
 
-Ce plugin permet de masquer des données sensibles (type password) dans la log d'exécution de vos playbooks.
+This plugin allows you to hide sensitive data (example password) in the execution log of your playbooks even when you use verbose mode.
 
 <br>
 
